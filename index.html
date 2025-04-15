@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Custom Looper</title>
+    <style>
+        
+        body {
+            font-family: sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .input-group input[type="text"],
+        .input-group input[type="number"],
+        .input-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box; /* Prevents padding from expanding element */
+        }
+
+        .input-group input[type="number"] {
+            -moz-appearance: textfield; /* Firefox */
+        }
+        .input-group input[type="number"]::-webkit-outer-spin-button,
+        .input-group input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+
+        button {
+            display: inline-block;
+            background-color: #5cb85c;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+            transition: 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #4cae4c;
+        }
+
+        button#playLoopBtn {
+            background-color: #337ab7;
+        }
+        button#playLoopBtn:hover {
+             background-color: #286090;
+        }
+        button:disabled {
+             background-color: #cccccc;
+             cursor: not-allowed;
+        }
+
+
+        #player-container {
+            margin-top: 20px;
+            margin-bottom: 20px;
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            height: 0;
+            overflow: hidden;
+            background-color: #000; /* Black background while loading */
+            border-radius: 4px;
+        }
+
+        #player-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #error-message {
+            color: #d9534f;
+            background-color: #f2dede;
+            border: 1px solid #ebccd1;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 15px;
+            display: none; /* Hidden by default */
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 15px; /* Space between items */
+            align-items: flex-end; /* Align items at the bottom */
+            flex-wrap: wrap; /* Allow wrapping on smaller screens */
+        }
+
+        .controls-row .input-group {
+            flex: 1; /* Allow inputs to grow */
+            min-width: 100px; /* Minimum width for time inputs */
+        }
+
+        /* --- Style for the custom loop count input group --- */
+        #customLoopCountGroup {
+            min-width: 120px; /* Give it a bit more space */
+            flex: 0.5; /* Don't let it grow as much as others */
+        }
+
+        .controls-row button {
+           margin-top: 28px; /* Align button with inputs */
+           align-self: flex-end; /* Make sure button aligns correctly */
+        }
+
+        @media (max-width: 700px) { /* Adjusted breakpoint for better wrapping */
+            .controls-row {
+                flex-direction: column;
+                align-items: stretch; /* Stretch items full width */
+                gap: 10px;
+            }
+             .controls-row button {
+                 margin-top: 10px;
+                 width: 100%;
+             }
+             .input-group select {
+                 width: 100%; /* Make select full width on mobile */
+             }
+             /* --- Ensure custom count input is full width on mobile --- */
+             #customLoopCountGroup {
+                width: 100%;
+             }
+             #customLoopCountGroup input {
+                width: 100%;
+             }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>YouTube Custom Looper</h1>
+
+        <div class="input-group">
+            <label for="videoUrl">YouTube Video URL:</label>
+            <input type="text" id="videoUrl" placeholder="e.g., https://www.youtube.com/watch?v=your_video_id">
+        </div>
+        <button id="loadVideoBtn">Load Video</button>
+
+        <div id="player-container">
+             <div id="player"></div>
+        </div>
+
+        <div id="controls" style="display: none;">
+            <p><strong>Define Loop Section:</strong></p>
+            <div class="controls-row">
+                <div class="input-group">
+                    <label for="loopStart">Loop Start (seconds):</label>
+                    <input type="number" id="loopStart" min="0" step="0.1" placeholder="e.g., 10">
+                </div>
+                <div class="input-group">
+                    <label for="loopEnd">Loop End (seconds):</label>
+                    <input type="number" id="loopEnd" min="0" step="0.1" placeholder="e.g., 25">
+                </div>
+                <div class="input-group">
+                    <label for="loopType">Loop Behavior:</label>
+                    <select id="loopType">
+                        <option value="none">No Loop (Play Once)</option>
+                        <option value="custom">Loop X Times</option>
+                        <option value="infinite">Loop Forever</option>
+                    </select>
+                </div>
+                <div class="input-group" id="customLoopCountGroup" style="display: none;">
+                    <label for="customLoopCount">Number of Loops:</label>
+                    <input type="number" id="customLoopCount" min="1" step="1" value="3">
+                </div>
+                <button id="playLoopBtn" disabled>Play Loop</button>
+            </div>
+        </div>
+
+        <div id="error-message"></div>
+    </div>
+
+    <script>
+        // --- Global Variables ---
+        let player;
+        let loopInterval;
+        let loopCount = 0;
+        let targetLoopCount = 1; // Default to 1 (no loop)
+        let loopStartTime = 0;
+        let loopEndTime = 0;
+        let currentVideoId = null;
+
+        // --- DOM Element References ---
+        const videoUrlInput = document.getElementById('videoUrl');
+        const loadVideoBtn = document.getElementById('loadVideoBtn');
+        const loopStartInput = document.getElementById('loopStart');
+        const loopEndInput = document.getElementById('loopEnd');
+        const loopTypeSelect = document.getElementById('loopType');
+        // Reference to the custom count input and its container
+        const customLoopCountGroup = document.getElementById('customLoopCountGroup');
+        const customLoopCountInput = document.getElementById('customLoopCount');
+        const playLoopBtn = document.getElementById('playLoopBtn');
+        const errorMessageDiv = document.getElementById('error-message');
+        const controlsDiv = document.getElementById('controls');
+        const playerContainer = document.getElementById('player-container');
+
+        // --- YouTube IFrame Player API ---
+        var tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api"; // Use HTTPS
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        function onYouTubeIframeAPIReady() {
+            console.log("YouTube IFrame API Ready.");
+        }
+
+        // --- Event Listeners ---
+        loadVideoBtn.addEventListener('click', loadVideoHandler);
+        playLoopBtn.addEventListener('click', playLoopHandler);
+
+        // Event listener to show/hide the custom loop count input
+        loopTypeSelect.addEventListener('change', () => {
+            if (loopTypeSelect.value === 'custom') {
+                customLoopCountGroup.style.display = 'block';
+            } else {
+                customLoopCountGroup.style.display = 'none';
+            }
+        });
+
+
+        // --- Functions ---
+
+        function displayError(message) {
+            errorMessageDiv.textContent = message;
+            errorMessageDiv.style.display = 'block';
+            console.error("Error:", message);
+        }
+
+        function clearError() {
+            errorMessageDiv.textContent = '';
+            errorMessageDiv.style.display = 'none';
+        }
+
+        function extractVideoID(url) {
+            clearError();
+            if (!url) return null;
+             // More robust regex to handle various YouTube URL formats
+            const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/i;
+            const match = url.match(regExp);
+
+            if (match && match[1]) {
+                return match[1]; // Return the video ID
+            } else {
+                displayError("Invalid YouTube URL format. Couldn't find Video ID.");
+                return null;
+            }
+        }
+
+        function loadVideoHandler() {
+            clearError();
+            stopLoop(); // Stop any previous loop
+
+            const url = videoUrlInput.value.trim();
+            const videoId = extractVideoID(url);
+
+            if (!videoId) {
+                controlsDiv.style.display = 'none';
+                playLoopBtn.disabled = true;
+                // Destroy player if URL is invalid after a video was loaded previously
+                if (player && typeof player.destroy === 'function') {
+                     player.destroy();
+                     player = null; // Reset player variable
+                     document.getElementById('player').innerHTML = ''; // Clear the div
+                     console.log("Player destroyed due to invalid URL.");
+                }
+                return;
+            }
+
+             // Check if the video ID is the same as the currently loaded one
+            if (player && currentVideoId === videoId && typeof player.getPlayerState === 'function') {
+                 console.log(`Video ${videoId} is already loaded.`);
+                 // Ensure controls are visible and button is enabled if player exists
+                 controlsDiv.style.display = 'block';
+                 playLoopBtn.disabled = false;
+                 // Optional: Reset loop inputs if desired when reloading same video
+                 // loopStartInput.value = '';
+                 // loopEndInput.value = '';
+                 return; // Don't reload if it's the same video
+            }
+
+
+            currentVideoId = videoId;
+
+            // If player exists, load new video; otherwise, create player
+            if (player && typeof player.loadVideoById === 'function') {
+                console.log(`Loading new video: ${videoId}`);
+                player.loadVideoById(videoId);
+            } else {
+                // Destroy existing player instance cleanly before creating a new one
+                if (player && typeof player.destroy === 'function') {
+                    player.destroy();
+                    console.log("Previous player instance destroyed.");
+                }
+                console.log(`Creating player for video: ${videoId}`);
+                // Ensure the target div is empty before creating
+                document.getElementById('player').innerHTML = '';
+                player = new YT.Player('player', {
+                    // height/width controlled by CSS
+                    videoId: videoId,
+                    playerVars: {
+                        'playsinline': 1, // Important for mobile playback
+                        'modestbranding': 1, // Less YouTube logo
+                        'rel': 0 // Don't show related videos at end
+                    },
+                    events: {
+                        'onReady': onPlayerReady,
+                        'onStateChange': onPlayerStateChange,
+                        'onError': onPlayerError
+                    }
+                });
+            }
+            controlsDiv.style.display = 'block'; // Show controls
+             // Keep Play button disabled until onReady confirms player is usable
+            playLoopBtn.disabled = true;
+            console.log("Load request sent, waiting for player ready state...");
+        }
+
+        function onPlayerReady(event) {
+            console.log("Player Ready. Video ID:", currentVideoId);
+            player = event.target; // Ensure global player variable is set correctly
+            playLoopBtn.disabled = false; // Enable button now player is ready
+            // Optionally set default loop end time
+            // const duration = player.getDuration();
+            // if (duration && !loopEndInput.value) {
+            //     loopEndInput.value = Math.floor(duration);
+            // }
+        }
+
+        function onPlayerError(event) {
+            clearError();
+            let errorMsg = "An error occurred with the YouTube player.";
+            switch (event.data) {
+                case 2: errorMsg = "Player Error: Invalid video URL or parameters."; break;
+                case 5: errorMsg = "Player Error: Problem with the HTML5 player."; break;
+                case 100: errorMsg = "Player Error: Video not found (removed or private)."; break;
+                case 101:
+                case 150: errorMsg = "Player Error: Playback disallowed by the video owner on embedded players."; break;
+                default: errorMsg = `Player Error: Code ${event.data}`;
+            }
+             displayError(errorMsg);
+             console.error('YouTube Player Error:', event.data);
+             playLoopBtn.disabled = true; // Disable play if player has error
+             controlsDiv.style.display = 'none'; // Hide controls on error
+             currentVideoId = null; // Reset current video ID on error
+             player = null; // Reset player object on error
+        }
+
+        function onPlayerStateChange(event) {
+            console.log("Player State Changed:", event.data, YT.PlayerState);
+
+            // If video ends naturally OR is paused manually OR Buffering after playing
+            // stop the loop interval if it was running.
+             if (loopInterval && (
+                 event.data === YT.PlayerState.ENDED ||
+                 event.data === YT.PlayerState.PAUSED ||
+                 (event.data === YT.PlayerState.BUFFERING && loopCount > 0) // Stop if buffering happens *during* a loop check cycle
+                 )) {
+                console.log("Player stopped/paused/ended/buffered, stopping loop check.");
+                stopLoop(); // Stop the loop check but don't pause video here
+            }
+            // If the video starts playing (could be manual or automatic after seek)
+            if (event.data === YT.PlayerState.PLAYING) {
+                 // Re-enable the button ONLY if a loop isn't currently active
+                 if (!loopInterval) {
+                    playLoopBtn.disabled = false;
+                 }
+            }
+             // If video cued or ready, make sure button is enabled (if not looping)
+             if (!loopInterval && (event.data === YT.PlayerState.CUED || event.data === YT.PlayerState.UNSTARTED)){
+                  playLoopBtn.disabled = false;
+             }
+        }
+
+        function playLoopHandler() {
+            clearError();
+
+            if (!player || typeof player.seekTo !== 'function' || typeof player.getPlayerState !== 'function') {
+                displayError("Player is not ready. Please load a video first.");
+                return;
+            }
+
+            // Make sure player is actually loaded and ready (not in an error state)
+             if(player.getPlayerState() === YT.PlayerState.UNSTARTED && !currentVideoId) {
+                  displayError("Load a video before playing.");
+                  return;
+             }
+
+
+            // Get loop times and type
+            const start = parseFloat(loopStartInput.value || 0); // Default start to 0 if empty
+            const end = parseFloat(loopEndInput.value);
+            const loopType = loopTypeSelect.value;
+
+            // --- Validation ---
+            if (isNaN(start) || start < 0) {
+                displayError("Invalid Loop Start time. Please enter a non-negative number (seconds).");
+                return;
+            }
+            if (isNaN(end) || end <= 0) {
+                displayError("Invalid Loop End time. Please enter a positive number (seconds).");
+                return;
+            }
+            if (end <= start) {
+                displayError("Loop End time must be greater than Loop Start time.");
+                return;
+            }
+
+            const duration = player.getDuration();
+            if (duration) { // Only validate against duration if available
+                 if(start >= duration) {
+                    displayError(`Loop Start time (${start}s) cannot be equal to or greater than video duration (${Math.floor(duration)}s).`);
+                     return;
+                 }
+                 if(end > duration) {
+                     displayError(`Loop End time (${end}s) cannot be greater than video duration (${Math.floor(duration)}s). Using video end instead.`);
+                     // Optionally, automatically correct the end time:
+                     // loopEndInput.value = Math.floor(duration);
+                     // end = Math.floor(duration);
+                     // For now, just show error and stop. Or you could proceed with corrected time.
+                     return; // Stop if end time is invalid relative to duration
+                 }
+            } else {
+                 console.warn("Video duration not available yet for validation.");
+            }
+
+
+            // --- Determine Target Loop Count --- CHANGED
+            loopCount = 0; // Reset loop count for the new sequence
+            if (loopType === 'none') {
+                targetLoopCount = 1; // Play the segment exactly once
+            } else if (loopType === 'infinite') {
+                targetLoopCount = Infinity;
+            } else if (loopType === 'custom') {
+                const numLoops = parseInt(customLoopCountInput.value, 10);
+                if (isNaN(numLoops) || numLoops < 1) {
+                    displayError("Please enter a valid number of loops (1 or more).");
+                    return;
+                }
+                targetLoopCount = numLoops;
+            } else {
+                // Fallback or error for unknown loop type
+                displayError("Invalid loop type selected.");
+                return;
+            }
+
+            // --- Set Global Loop Parameters ---
+            loopStartTime = start;
+            loopEndTime = end;
+
+
+            console.log(`Starting loop: Start=${loopStartTime}s, End=${loopEndTime}s, Target Loops=${targetLoopCount === Infinity ? 'Infinite' : targetLoopCount}`);
+
+            // Stop any existing loop interval
+            stopLoop();
+
+            // Seek to start and play
+            player.seekTo(loopStartTime, true); // true allows seek ahead
+            player.playVideo();
+
+            // Start the interval ONLY if we need to loop more than once or infinitely
+            // OR if 'none' is selected (to stop it after one play) - actually checkLoopTime handles the stop for 'none'.
+             if (targetLoopCount >= 1) { // Start checker if we play at least once
+                 loopInterval = setInterval(checkLoopTime, 150); // Check ~6-7 times per second
+                 playLoopBtn.textContent = "Looping..."; // Give feedback
+                 playLoopBtn.disabled = true; // Disable button while looping process is active
+             } else {
+                 // This case shouldn't happen with current logic, but as a fallback:
+                 console.log("Loop count is less than 1, playing segment once without interval.");
+                 // We might need a different mechanism to detect the end if no interval is set.
+                 // However, the current logic handles targetLoopCount = 1 correctly via the interval.
+             }
+        }
+
+        function checkLoopTime() {
+            // Essential checks: is the player valid and is the interval supposed to be running?
+            if (!player || typeof player.getCurrentTime !== 'function' || !loopInterval) {
+                 console.log("checkLoopTime called but player invalid or interval cleared.");
+                 stopLoop(); // Stop if player is gone or interval cleared elsewhere
+                 return;
+            }
+
+             // Ensure player is playing before checking time - prevents seeking if paused manually
+            if (player.getPlayerState() !== YT.PlayerState.PLAYING) {
+                 // Don't return here if the state is BUFFERING, allow check to proceed
+                 if(player.getPlayerState() !== YT.PlayerState.BUFFERING) {
+                     // console.log("Loop check paused because player is not playing or buffering.");
+                     return; // Pause checks if manually paused, ended, cued etc.
+                 } else {
+                     // console.log("Player is buffering, loop check continues...");
+                 }
+            }
+
+            const currentTime = player.getCurrentTime();
+
+            // Check if current time has passed the loop end point
+            if (currentTime >= loopEndTime) {
+                loopCount++;
+                console.log(`Loop segment ${loopCount} finished.`);
+
+                if (loopCount < targetLoopCount) {
+                    // Loop again: Seek back to start
+                    console.log(`Looping again (${loopCount + 1}/${targetLoopCount === Infinity ? 'Inf' : targetLoopCount}). Seeking to ${loopStartTime}s.`);
+                    player.seekTo(loopStartTime, true);
+                     // Ensure it plays if seek caused a pause (can happen)
+                    if(player.getPlayerState() !== YT.PlayerState.PLAYING) {
+                         // Small delay might help if seek->play fails immediately
+                         setTimeout(() => {
+                             if (loopInterval) player.playVideo(); // Only play if loop wasn't stopped in the meantime
+                         }, 50);
+                    }
+                } else {
+                    // Finished looping (either reached target or played once for 'none')
+                    console.log("Target loop count reached or 'No Loop' finished. Stopping loop.");
+                    stopLoop(); // Clears interval, resets button
+                    player.pauseVideo(); // Pause at the end of the last loop/segment
+                    // Optional: Seek to the exact end time for precision?
+                    // player.seekTo(loopEndTime, true);
+                }
+            }
+            // Optional: Check if player time unexpectedly jumped *before* the start time
+             else if (currentTime < loopStartTime - 0.5 && loopCount > 0) { // Add threshold (0.5s)
+                 // This might happen if the user manually seeks back during loop
+                 console.log("Detected time before loop start after looping started. Seeking back to start:", loopStartTime);
+                 player.seekTo(loopStartTime, true);
+             }
+        }
+
+        function stopLoop() {
+            if (loopInterval) {
+                clearInterval(loopInterval);
+                loopInterval = null; // Clear the interval ID
+                console.log("Loop interval cleared.");
+                playLoopBtn.textContent = "Play Loop"; // Reset button text
+
+                // Re-enable button only if player exists and is in a valid state
+                if (player && typeof player.getPlayerState === 'function' && player.getPlayerState() !== YT.PlayerState.UNSTARTED) {
+                     // Check if player hasn't errored out
+                     let state = player.getPlayerState();
+                     if(state !== -1 && state !== YT.PlayerState.UNSTARTED) { // -1 is unstarted, check others too
+                         playLoopBtn.disabled = false;
+                     } else {
+                         playLoopBtn.disabled = true; // Keep disabled if player is unstarted/error
+                     }
+                } else {
+                    playLoopBtn.disabled = true; // Keep disabled if no valid player
+                }
+            }
+             // Reset loop count here as well, ensuring it's fresh when stopLoop is called before starting a new loop.
+             // loopCount = 0; // No, reset loopCount only when *starting* a new loop sequence in playLoopHandler
+        }
+
+    </script>
+
+</body>
+</html>
