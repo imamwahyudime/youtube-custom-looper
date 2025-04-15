@@ -23,9 +23,16 @@ It utilizes the YouTube IFrame Player API to embed and control the video playbac
 
 ## Usage:
 
+- **Option 1:**
+1. Go to https://imamwahyudime.github.io/youtube-custom-looper/
+2. Enjoy!
+
+
+- **Option 2:**
 1.  Clone or download this repository.
 2.  Open `index.html` in your web browser.
 3.  Enjoy!
+
 
 ## Technology Used:
 
